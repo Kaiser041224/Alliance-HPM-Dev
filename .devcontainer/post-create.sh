@@ -177,7 +177,7 @@ if [ -n "$HOST_AGENTS_DIR" ]; then
 fi
 
 if [ -n "$HOST_CONFIG_OPENCODE" ]; then
-  for f in opencode.json oh-my-openagent.json; do
+  for f in opencode.json; do
     if [ -f "$HOST_CONFIG_OPENCODE/$f" ]; then
       ln -snf "$HOST_CONFIG_OPENCODE/$f" "$TARGET_HOME/.config/opencode/$f"
     fi
@@ -195,14 +195,8 @@ if [ -n "$HOST_CONFIG_OPENCODE" ]; then
     rm -f "$TARGET_HOME/.config/opencode/package.json" "$TARGET_HOME/.config/opencode/package-lock.json" 2>/dev/null || true
   fi
 
-  if command -v opencode >/dev/null 2>&1; then
-    echo "[post-create] Installing opencode plugin: oh-my-openagent@latest"
-    if ! opencode plugin install oh-my-openagent@latest; then
-      echo "[post-create] WARNING: opencode plugin install failed. Plugin-dependent features may not work." >&2
-    fi
-  else
-    echo "[post-create] WARNING: opencode CLI not found in PATH. Plugins will not be installed." >&2
-  fi
+  # 插件由共享 opencode.json 的 plugin 数组声明，opencode 启动时会自动安装到本容器
+  # 的缓存卷（/root/.cache/opencode），无需在此显式安装。
 fi
 
 if [ -n "$HOST_OPENCODE_SHARE_RO" ]; then
