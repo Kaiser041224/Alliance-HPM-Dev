@@ -1,385 +1,177 @@
-# Alliance-HPM-Dev 使用说明
+# Alliance-HPM-Dev — 开发环境仓库
 
-## 1. 工作区定位
-
-本仓库是一个基于 **HPM SDK** 的嵌入式开发工作区，核心目标是：
-
-- 以 `user_template` 作为用户工程模板，快速复制出新项目
-- 复用 `alliance_hpm_base_platform` 中的通用业务驱动封装
-- 依赖 `hpm_sdk` 完成底层 BSP、驱动、中间件与工具链集成
-
-## 2. 目录组成
+本仓库**只负责开发环境**：容器、工具链、SDK、脚本、工程模板、共享规范。具体工程各自独立成库，统一放在工作区 `projects/` 目录下开发，由本仓库提供统一的环境与工具。
 
 ```text
-/workspace
-├── user_template/                 # 用户工程模板（主入口）
-├── alliance_hpm_base_platform/    # 通用平台层（GPIO/UART/SPI/CAN等）
-├── hpm_sdk/                       # HPM 官方 SDK（子模块）
-├── tools/
-│   ├── scripts/                   # 辅助脚本（build_ui/openocd安装）
-│   └── openocd-hpm/               # HPM OpenOCD 安装目录
-├── .envrc                         # 进入目录后自动加载开发环境
-├── .devcontainer/                 # Dev Container 配置
-└── Dockerfile                     # 开发镜像定义
+环境仓库（本仓库）          独立工程（projects/*，各自一个 git 仓库）
+┌────────────────────┐      ┌───────────────────────────────┐
+│ 容器 / 工具链 / SDK │ ───► │ HPM5361_SuperCap              │
+│ 脚本 / 模板 / 规范  │      │ HPM5361_WirelessCharger       │
+│ projects.yaml 清单  │      │ ...                           │
+└────────────────────┘      └───────────────────────────────┘
 ```
 
-## 3. 关键模块说明
+---
 
-### 3.1 `user_template/`
+## 1. 目录结构
 
-用于创建新工程，包含：
+```text
+/workspace                             # 环境仓库根 = $HPMDEV_ROOT
+├── config/                            # ★ 共享配置单一真源（由 hpmdev 下发）
+│   ├── AGENTS.md                      #   开发规范（分层 / C17 / 性能 / 共享策略）
+│   ├── clangd.tpl                     #   .clangd 模板（板级路径自动注入）
+│   ├── clang-format / clang-tidy
+│   ├── editorconfig / cspell.json
+│   └── VERSION                        #   环境契约版本
+├── templates/
+│   └── hpm5361-4layer/                # ★ 工程模板（含 App/Algorithm 可复用算法库）
+├── sdk/
+│   └── hpm_sdk/                       # HPM 官方 SDK（子模块，pin 具体版本）
+├── shared/                            # 跨工程共享代码（HPMDEV_SHARED_DIR，可选）
+├── tools/
+│   ├── bin/hpmdev                     # ★ 环境统一 CLI
+│   └── scripts/                       # build_ui.sh / flash_target.sh / 安装脚本
+├── projects/                          # ★ 各独立工程克隆于此（被 .gitignore 排除）
+├── projects.yaml                      # 工程清单（只记 url/branch，不 pin commit）
+├── .envrc                             # 环境入口（direnv 自动加载）
+├── Dockerfile / .devcontainer*/       # 容器与 Dev Container 配置
+└── README.md
+```
 
-- `Makefile`：统一构建入口（`configure/build/artifacts/clean`）
-- `user_app/`：应用代码（`main.c` 等）
-- `user_board/`：板级文件（`board.*`、`pinmux.*`、`user_board.yaml/cfg`）
-- `linkers/`：GCC / IAR / Segger 链接脚本
+**边界约定**：本仓库不跟踪任何工程内容；`git status` 应始终保持干净（`projects/` 整目录忽略）。
 
-构建状态展示由 `Makefile` 调用：
+---
 
-- `tools/scripts/build_ui.sh`
+## 2. 初始化环境
 
-### 3.2 `alliance_hpm_base_platform/`
-
-放置可在多个项目复用的通用封装代码，如：
-
-- `gpio/`
-- `uart/`
-- `spi/`（含 BMI088 相关头文件）
-- `can/`
-
-`user_template/user_app/CMakeLists.txt` 支持按需开启公共平台头文件引入。
-
-### 3.3 `hpm_sdk/`
-
-官方 SDK（当前工作区通过 `HPM_SDK_BASE=/workspace/hpm_sdk` 使用）。
-
-### 3.4 `tools/`
-
-- `tools/scripts/build_ui.sh`：构建结果汇总与错误提取
-- `tools/scripts/install-hpm-openocd.sh`：OpenOCD 安装脚本
-- `tools/openocd-hpm/install/bin/openocd`：OpenOCD 可执行程序
-
-## 4. 快速开始
-
-### 4.1 初始化环境
-
-推荐使用 `direnv` 自动加载 `.envrc`：
+推荐使用 Dev Container（`.devcontainer/`），或用 `direnv` 在本地加载：
 
 ```bash
 cd /workspace
 direnv allow
 ```
 
-检查关键变量：
+`.envrc` 会：加载 `hpm_sdk/env.sh`、加入工具链与 `tools/bin` 到 `PATH`、准备 Python venv、探测 OpenOCD / J-Link，并导出：
+
+| 变量 | 含义 |
+| :--- | :--- |
+| `HPMDEV_ROOT` | 环境仓库根目录 |
+| `HPMDEV_SDK_DIR` | SDK 路径（与 `HPM_SDK_BASE` 等价） |
+| `HPMDEV_TOOLS_DIR` | 工具/脚本根目录 |
+| `HPMDEV_TEMPLATES_DIR` | 工程模板根目录 |
+| `HPMDEV_CONFIG_DIR` | 共享配置目录 |
+| `HPMDEV_PROJECTS_DIR` | 工程存放目录 |
+| `HPMDEV_SHARED_DIR` | 共享代码目录 |
+| `HPMDEV_HOST_WORKSPACE` | 宿主机工作区路径（供 debug 路径重映射） |
+
+自检：
 
 ```bash
-echo "$HPM_SDK_BASE"
-echo "$GNURISCV_TOOLCHAIN_PATH"
-which riscv32-unknown-elf-gcc
-```
-
-### 4.2 编译模板工程
-
-```bash
-cd /workspace/user_template
-make build
-```
-
-导出产物（到 `user_template/output/`）：
-
-```bash
-make artifacts
-```
-
-## 5. 基于模板创建新工程
-
-推荐优先使用脚本创建工程（会自动完成板级重命名、开发配置生成）：
-
-```bash
-cd /workspace
-bash tools/scripts/new_project <project_name>
-```
-
-示例：
-
-```bash
-bash tools/scripts/new_project motor_ctrl
-```
-
-脚本会自动执行：
-
-- 从 `user_template/` 复制工程
-- 将 `Board/user_board` 重命名为 `Board/<project_name>_board`
-- 生成项目级 `.clangd`（包含相对路径配置）
-- 生成 `<project_name>.code-workspace`，并自动加入：
-  - 当前新工程
-  - `hpm_sdk`
-  - `alliance_hpm_base_platform`
-
-> 说明：生成的 `.clangd` 与 `.code-workspace` 均使用**相对路径**，便于在不同目录层级复用。
-
-### 5.1 手动复制方式（可选）
-
-```bash
-cd /workspace
-cp -a user_template my_project
-cd my_project
-make clean
-make build
-```
-
-说明：
-
-- `make clean` 很重要，可避免复制来的旧 `build/CMakeCache.txt` 导致路径冲突。
-- 产物默认在 `my_project/output/`。
-
-## 6. 常用构建命令
-
-```bash
-make configure
-make build
-make artifacts
-make clean
-```
-
-可覆盖参数示例：
-
-```bash
-make build BOARD=user_board CMAKE_BUILD_TYPE=Release HPM_BUILD_TYPE=flash_xip
-```
-
-## 7. 使用技巧（建议）
-
-- 复制模板后第一步执行 `make clean`，避免缓存污染。
-- 板级命名保持一致：目录名、`board.name`、配置文件语义一致。
-- 日常排障先看 `build/last_build.log`，再结合 `build_ui.sh` 汇总信息定位。
-- 如果要长期复用公共模块，优先放在 `alliance_hpm_base_platform/`，项目仅保留应用与板级差异。
-- 需要重新生成 IDE 工程（IAR/Segger）时，先 `make clean` 再 `make build`。
-
-## 8. 常见问题
-
-### Q1: 复制模板后第一次构建失败，提示 CMakeCache 路径不一致
-
-原因：复制时带上了旧 `build/`。
-
-处理：
-
-```bash
-make clean
-make build
-```
-
-### Q2: 找不到 SDK 或工具链
-
-先确认已执行 `direnv allow`，并检查：
-
-```bash
-echo "$HPM_SDK_BASE"
-echo "$GNURISCV_TOOLCHAIN_PATH"
-```
-
-## 9. Dev Container 环境搭建
-
-本项目提供 `.devcontainer/devcontainer.json`，在 VS Code 中一键启动容器化开发环境。
-
-### 9.1 双配置开箱即用方案
-
-当前仓库提供两套 Dev Container 配置：
-
-| 配置目录 | 适用场景 | Home 来源 |
-|---------|---------|----------|
-| `.devcontainer/` | 默认推荐，Windows / Docker Desktop | `${localEnv:USERPROFILE}` |
-| `.devcontainer-linux/` | Linux / Arch Linux 主机 | `${localEnv:HOME}` |
-| `.devcontainer-windows/` | Windows fallback（与默认等价保留） | `${localEnv:USERPROFILE}` |
-
-推荐选择策略：
-
-- **Windows / Docker Desktop**：直接使用默认 `.devcontainer/`
-- **Arch Linux / Linux**：使用 `.devcontainer-linux/`
-- **Windows fallback**：如需保留旧选择方式，也可继续使用 `.devcontainer-windows/`
-
-### 9.2 Root 用户模式
-
-**当前容器统一以 `root` 用户直接运行，不再创建普通用户（如 `alliance`）。**
-
-容器内 `HOME=/root`，所有持久化数据均存放于 `/root` 下：
-
-| 目录 | 用途 |
-|------|------|
-| `/root/.config/opencode` | opencode 配置（插件、命令、主题等） |
-| `/root/.local/share/opencode` | opencode 运行时数据（auth.json 等） |
-| `/root/.cache/opencode` | opencode 缓存 |
-| `/root/.codex` / `.claude` / `.agents` | 从宿主机 symlink 的 AI 工具配置 |
-
-脚本会自动探测宿主机目录布局并完成 symlink / 文件复制：
-
-```text
-/host-home/.codex or .config/codex               → /root/.codex
-/host-home/.claude or .config/claude             → /root/.claude
-/host-home/.agents or .config/agents             → /root/.agents
-/host-home/.config/opencode                      → /root/.config/opencode
-/host-home/AppData/Roaming/opencode              → /root/.config/opencode
-/host-home-ro/.local/share/opencode/auth.json          → /root/.local/share/opencode/auth.json
-/host-home-ro/AppData/Local/opencode/auth.json         → /root/.local/share/opencode/auth.json
-```
-
-> 说明：`opencode` CLI 本体已在镜像内安装，因此不再依赖宿主机 `~/.opencode/bin/opencode`。
-
-### 9.3 Windows 默认方案（`.devcontainer/`）
-
-当前默认 Dev Container 面向 **Windows + Docker Desktop**，使用 `USERPROFILE` 作为宿主机 Home 来源：
-
-| 挂载 | 来源 | 容器路径 | 用途 |
-|------|------|---------|------|
-| Host Home | `${localEnv:USERPROFILE}` | `/host-home` | 共享 `~/.codex`、`~/.claude`、`~/.agents`、opencode 配置 |
-| Host Home(只读) | `${localEnv:USERPROFILE}` | `/host-home-ro` | 只读读取 opencode 认证数据 |
-| Docker Volume | `alliance-hpm-dev-opencode-data` | `/root/.local/share/opencode` | 容器内持久化 opencode 数据 |
-| Docker Volume | `alliance-hpm-dev-opencode-cache` | `/root/.cache/opencode` | 容器内持久化 opencode 缓存 |
-
-### 9.4 Linux / Arch Linux 方案（`.devcontainer-linux/`）
-
-如果你的宿主机本身就是 Linux / Arch Linux，请选择：
-
-- 配置目录：`.devcontainer-linux/`
-- Home 挂载来源：`${localEnv:HOME}`
-
-该配置会自动兼容：
-
-- `$HOME/.config/opencode`
-- `$HOME/.local/share/opencode`
-- `$HOME/.codex`
-- `$HOME/.claude`
-- `$HOME/.agents`
-
-### 9.5 Windows fallback 方案（`.devcontainer-windows/`）
-
-如果你的 Windows 宿主机里 `HOME` 不存在，或者 VS Code / Docker Desktop 无法正确解析 `${localEnv:HOME}`，请改用：
-
-- 配置目录：`.devcontainer-windows/`
-- Home 挂载来源：`${localEnv:USERPROFILE}`
-
-其余行为与默认方案保持一致：
-
-- `opencode` CLI 仍然在镜像内安装
-- 配置/认证仍然自动探测
-- 仍然使用同一套 `post-create.sh`
-
-### 9.6 开箱即用前提
-
-为了保证 Windows 和 Arch Linux 都能开箱即用，请确保宿主机至少满足以下之一：
-
-#### Windows（默认配置 `.devcontainer/`）
-
-- opencode 配置位于以下任一位置：
-  - `%USERPROFILE%\AppData\Roaming\opencode`
-  - `%USERPROFILE%\.config\opencode`
-
-#### Windows（fallback 配置 `.devcontainer-windows/`）
-
-- `USERPROFILE` 环境变量正常存在
-- 推荐 opencode 配置位于以下任一位置：
-  - `%USERPROFILE%\AppData\Roaming\opencode`
-  - `%USERPROFILE%\.config\opencode`
-
-#### Arch Linux / Linux（配置 `.devcontainer-linux/`）
-
-- `HOME` 环境变量正常存在
-- 推荐使用标准 XDG 路径：
-  - `$HOME/.config/opencode`
-  - `$HOME/.local/share/opencode`
-
-### 9.7 在 VS Code 中如何选择配置
-
-如果 VS Code 检测到多个 Dev Container 配置目录，通常会提示你选择。
-
-建议这样选：
-
-- Windows / Docker Desktop：选 `.devcontainer/`
-- Linux / Arch Linux：选 `.devcontainer-linux/`
-- 如果要保留 Windows 备用配置，也可以选 `.devcontainer-windows/`
-
-如果当前已经打开了错误配置，可以：
-
-1. `Dev Containers: Reopen Folder Locally`
-2. 再执行 `Dev Containers: Reopen in Container`
-3. 选择正确的配置目录
-
-### 9.8 如果容器里已有 `codex` / `claude` 但没有 `opencode`
-
-这通常说明当前容器是基于旧镜像创建的，还没包含最新的 `opencode-ai` 安装步骤。
-
-处理方式二选一：
-
-1. **推荐：重建容器**
-
-   - `Dev Containers: Rebuild and Reopen in Container`
-
-2. **快速修复：在容器内手动重跑初始化脚本**
-
-   ```bash
-   bash .devcontainer/post-create.sh
-   ```
-
-该脚本现在会在发现 `opencode` 缺失时自动执行：
-
-```bash
-npm install -g opencode-ai
-```
-
-修复后可验证：
-
-```bash
-which opencode
-opencode --version
-```
-
-> 说明：当前配置**不会**在镜像构建阶段执行 `npm install -g npm@latest`，也不再依赖 `NodeSource setup_22.x` 脚本。这是为了避免某些网络 / 源组合下出现类似 `Cannot find module 'promise-retry'` 或 NodeSource 初始化失败的构建问题。
-
-### 9.9 镜像内容
-
-首次启动自动构建 Docker 镜像（基于 `Dockerfile`），包含：
-
-- Ubuntu 24.04 / GCC-14 / RISC-V GNU Toolchain（交叉编译）
-- LLVM clangd（代码智能提示）/ CMake / Ninja / Make
-- OpenOCD 依赖库 / Oh-My-Zsh / direnv
-- 后续启动复用镜像缓存，无需重新构建
-
-### 9.10 Root 使用验证步骤
-
-容器启动后，在终端中执行以下命令验证 root 模式已生效：
-
-```bash
-# 1. 确认当前用户为 root
-whoami
-# 期望输出: root
-
-# 2. 确认 HOME 指向 /root
-echo "$HOME"
-# 期望输出: /root
-
-# 3. 确认工作目录为 /workspace
-pwd
-# 期望输出: /workspace
-
-# 4. 确认 opencode / codex / claude CLI 可用
-which opencode && opencode --version
-which codex && codex --version
-which claude && claude --version
-
-# 5. 确认 AI 工具配置已从宿主机同步
-ls -la /root/.codex
-ls -la /root/.claude
-ls -la /root/.config/opencode
-
-# 6. 确认环境变量已设置
-echo "$HPM_SDK_BASE"
-echo "$GNURISCV_TOOLCHAIN_PATH"
-which riscv32-unknown-elf-gcc
+hpmdev doctor     # 环境 / 工具链 / SDK / fileMode 体检
+hpmdev env        # 打印解析后的所有路径
 ```
 
 ---
 
-## 10. 推荐阅读
+## 3. hpmdev 命令
 
-- 模板详细说明：`/workspace/user_template/README_zh.md`
-- SDK 总览：`/workspace/hpm_sdk/README_zh.md`
+```bash
+hpmdev new <name> [--template <t>] [--board <b>]   # 从模板创建新工程
+hpmdev clone [name]                                # 按 projects.yaml 克隆工程（缺省全部）
+hpmdev list                                        # 列出工程及其 git 状态
+hpmdev sync-config <name>|--all                    # 下发 config/ 到工程（或模板）
+hpmdev doctor                                      # 环境体检
+hpmdev env                                         # 打印环境路径
+```
+
+### 3.1 新建工程
+
+```bash
+hpmdev new my_motor_ctrl
+cd projects/my_motor_ctrl
+make build
+```
+
+自动完成：复制模板 → 重命名板级 `user_board` → 下发配置（`.clangd` / `.clang-format` / … / `AGENTS.md`）→ 生成 `.code-workspace`（相对引用 `sdk/hpm_sdk` 与 `shared`）→ `git init` 并提交初始脚手架。
+
+### 3.2 接入既有工程
+
+1. 在 `projects.yaml` 登记 `name / url / branch`（可选 `default_board`）。
+2. 执行 `hpmdev clone`（或 `git clone` 到 `projects/<name>`）。
+3. 执行 `hpmdev sync-config <name>` 下发共享配置。
+
+`hpmdev list` 会显示清单内工程是否存在、分支与脏文件数。
+
+### 3.3 更新共享配置
+
+修改 `config/` 下的规范文件后下发：
+
+```bash
+hpmdev sync-config --all
+```
+
+`AGENTS.md` 的「项目附加约定」小节会被保留，不会被覆盖。
+
+---
+
+## 4. 工程构建与烧录
+
+在工程目录内：
+
+```bash
+make configure        # 生成构建系统
+make build            # 编译（日志 build/last_build.log）
+make artifacts        # 导出产物到 output/
+make clean
+make flash            # OpenOCD 烧录（make flash-jlink 走 J-Link）
+```
+
+可覆盖：`make build BOARD=<board> CMAKE_BUILD_TYPE=Release HPM_BUILD_TYPE=flash_xip`。
+
+工程 Makefile 全部通过环境变量定位 SDK 与脚本，并在缺省时回退到标准布局 `../../sdk/hpm_sdk`、`../../tools`，因此脱离 `.envrc` 也能按标准目录构建。
+
+---
+
+## 5. 共享代码策略
+
+`alliance_hpm_base_platform` 共享库已废弃（见 `shared/README.md`），不再以子模块引入。可复用内容通过两条途径传播：
+
+1. **模板传播**：两个实战工程沉淀的共享栈由 `templates/hpm5361-4layer` 携带，新工程自动获得——`App/Algorithm`（PID / PLL / 滤波 / RMS / 斜坡 / 迟滞 / 前馈）、`App/Platform`（ADC16 PMT / HRPWM / GPTMR / GPIO / CAN / WS2812 / 模拟量调理）、`App/Debug`（RTT 与自检）、完整 `Interface` + `Driver` 栈。
+2. **环境变量共享**：需要跨工程共享但不想进模板的代码放到 `shared/`，工程通过 `$HPMDEV_SHARED_DIR` 可选引用；脱离工作区自动降级，不影响独立构建。
+
+判断标准：只服务一个工程 → 留在工程内；多个工程都用 → 进模板或 `shared/`。
+
+---
+
+## 6. 环境版本与契约
+
+- `config/VERSION` 记录环境契约版本（当前 `1.0.0`）。
+- SDK 以子模块 pin 具体提交，`hpmdev doctor` 校验 `HPM_SDK_BASE` 与本仓库布局一致。
+- 工程侧规范、工具链配置全部来自 `config/`，不要在工程内直接改（会被下次 `sync-config` 覆盖）。
+
+---
+
+## 7. 与旧布局的差异
+
+| 旧 | 新 |
+| :--- | :--- |
+| `hpm_sdk/` | `sdk/hpm_sdk/` |
+| `user_template/` | `templates/hpm5361-4layer/` |
+| `alliance_hpm_base_platform/`（子模块） | 已废弃，能力由模板 / `shared/` 承接 |
+| `HPM5361_*` 直接放在根目录 | `projects/HPM5361_*`（独立仓库，整目录忽略） |
+| 根目录 `.clang-format` 等 | `config/`（单一真源，经 `hpmdev sync-config` 下发） |
+| `tools/scripts/new_project` | `hpmdev new`（`new_project.sh` 保留为兼容包装） |
+| `-fdebug-prefix-map` 硬编码宿主路径 | 读取 `HPMDEV_HOST_WORKSPACE`，映射到 `projects/<name>` 与 `sdk/hpm_sdk` |
+
+---
+
+## 8. 常见问题
+
+**Q：`git submodule status` 报错？**
+旧版本中 `HPM5361_SuperCap` 是未登记 gitlink。现已摘除，`.gitmodules` 只保留 `sdk/hpm_sdk`。
+
+**Q：`git status` 出现大量 644→755 权限变化？**
+已在本仓库与各工程设置 `core.fileMode=false`；新 clone 的工程可由 `hpmdev clone` 自动设置。
+
+**Q：工程里 `make` 找不到 SDK？**
+先 `direnv allow` 或 `hpmdev doctor`；工程 Makefile 也会回退到 `../../sdk/hpm_sdk`。

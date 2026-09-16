@@ -98,7 +98,7 @@ RUN set -eux; \
 
 ENV GNURISCV_TOOLCHAIN_PATH=/opt/riscv32-gnu-toolchain-elf-bin
 ENV PATH="${GNURISCV_TOOLCHAIN_PATH}/bin:${PATH}"
-ENV HPM_SDK_BASE=/workspace/hpm_sdk
+ENV HPM_SDK_BASE=/workspace/sdk/hpm_sdk
 
 # ---- 6) Root-first shell environment ----
 RUN set -eux; \
@@ -112,7 +112,7 @@ RUN set -eux; \
     { \
       echo ""; \
       echo 'eval "$(direnv hook zsh)"'; \
-      echo 'export HPM_SDK_BASE=/workspace/hpm_sdk'; \
+      echo 'export HPM_SDK_BASE=/workspace/sdk/hpm_sdk'; \
       echo 'export GNURISCV_TOOLCHAIN_PATH=/opt/riscv32-gnu-toolchain-elf-bin'; \
       echo 'export PATH="$GNURISCV_TOOLCHAIN_PATH/bin:$PATH"'; \
       echo 'export HISTFILE=/workspace/.devcontainer/.zsh_history'; \

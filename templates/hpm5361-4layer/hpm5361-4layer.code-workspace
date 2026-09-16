@@ -1,0 +1,21 @@
+{
+  "folders": [
+    { "name": "hpm5361-4layer", "path": "." },
+    { "name": "hpm_sdk", "path": "../../sdk/hpm_sdk" },
+    { "name": "shared", "path": "../../shared" }
+  ],
+  "settings": {
+    "clangd.path": "clangd",
+    "clangd.arguments": ["--log=error", "--background-index", "--header-insertion=never"],
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "cmake.configureOnOpen": false,
+    "files.exclude": { "**/.git": true, "**/.cache": true, "**/build": true, "**/output": true },
+    "search.exclude": { "**/.cache": true, "**/.venv": true, "**/build": true, "**/output": true },
+    "files.watcherExclude": { "**/.cache/**": true, "**/.venv/**": true, "**/build/**": true, "**/output/**": true },
+    "cSpell.enabled": true,
+    "cSpell.language": "en,zh-CN",
+    "cSpell.useGitignore": true,
+    "editor.formatOnSave": false,
+    "terminal.integrated.cwd": "."
+  }
+}

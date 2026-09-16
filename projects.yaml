@@ -1,0 +1,20 @@
+# ============================================================================
+# projects.yaml — 工程清单
+#
+# 本文件只登记「独立工程仓库」的克隆信息，不 pin 具体 commit。
+# 工程实际内容位于 projects/<name>/ ，由根 .gitignore 排除，永不被本仓库跟踪。
+#
+# 管理命令：
+#   hpmdev clone [name]     # 按本清单克隆（缺省克隆全部）
+#   hpmdev list             # 查看清单内的工程在本地是否存在及其 git 状态
+# ============================================================================
+projects:
+  - name: HPM5361_SuperCap
+    url: https://github.com/Kaiser041224/HPM5361_SuperCap.git
+    branch: main
+    default_board: HPM5361_SuperCap_board
+
+  - name: HPM5361_WirelessCharger
+    url: https://github.com/liguijia/HPM5361_WirelessCharger.git
+    branch: main
+    default_board: HPM5361_WirelessCharger_board

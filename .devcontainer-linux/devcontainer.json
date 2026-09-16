@@ -62,8 +62,8 @@
         "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
         "ANTHROPIC_AUTH_TOKEN": "${localEnv:ANTHROPIC_AUTH_TOKEN}",
         "HOST_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
-        "HPM_SDK_BASE": "/workspace/hpm_sdk",
-        "HPM_OCD_SCRIPTS": "/workspace/hpm_sdk/boards/openocd",
+        "HPM_SDK_BASE": "/workspace/sdk/hpm_sdk",
+        "HPM_OCD_SCRIPTS": "/workspace/sdk/hpm_sdk/boards/openocd",
         "HPM_OPENOCD_PREFIX": "/workspace/tools/openocd-hpm/install"
     },
 

@@ -1,0 +1,22 @@
+# Build artifacts
+build/
+output/
+.cache/
+
+# IDE generated files
+*.emProject
+*.ewp
+*.eww
+
+# Temporary files
+*.log
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+*.asm
+
+# AI assistant scratch state
+.sisyphus/
+.mimocode/

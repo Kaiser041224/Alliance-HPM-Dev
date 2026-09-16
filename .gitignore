@@ -1,18 +1,29 @@
+# ============================================================================
+# Alliance-HPM-Dev : environment repository
+# Only environment, tooling, scripts and templates are tracked here.
+# ============================================================================
+
+# ---- Independent project repositories (cloned into projects/, never tracked) ----
+/projects/
+
+# ---- Runtime / editor state ----
 .vscode/
 .cache/
 .venv/
-
 __pycache__/
+compile_commands.json
+.devcontainer/.zsh_history
 
+# ---- Build artifacts (any project/template build) ----
 build/
 output/
 
+# ---- Installed tools (binaries are provisioned, not tracked) ----
 /tools/openocd-hpm/
-/tools/jlink-V8.40
+/tools/openocd-build/
+/tools/jlink-V8.40/
 /tools/**/.cache/
 
-/HPM5361_WirelessCharger/
-
-compile_commands.json
-
-.devcontainer/.zsh_history
+# ---- AI assistant scratch state ----
+.sisyphus/
+.mimocode/
